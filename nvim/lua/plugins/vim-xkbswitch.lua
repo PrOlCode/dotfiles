@@ -1,0 +1,3 @@
+return { 
+    {'ivanesmantovich/xkbswitch.nvim'} 
+}
