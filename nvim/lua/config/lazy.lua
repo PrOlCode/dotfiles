@@ -35,3 +35,6 @@ require("lazy").setup({
 })
 
 require('xkbswitch').setup()
+
+require("catppuccin").setup()
+vim.cmd.colorscheme "catppuccin"
