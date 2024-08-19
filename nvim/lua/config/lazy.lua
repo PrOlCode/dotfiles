@@ -35,21 +35,3 @@ require("lazy").setup({
 })
 
 require('xkbswitch').setup()
-
-require("catppuccin").setup()
-vim.cmd.colorscheme "catppuccin"
-
-local builtin = require('telescope.builtin')
-vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
-vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
-vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
-vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
-
---require("lazy").setup({{"nvim-treesitter/nvim-treesitter", build = ":TSUpdate"}})
-
-local config = require("nvim-treesitter.configs")
-config.setup({
-  ensure_installed = {"lua", "javascript"},
-  highlight = { enable = true },
-  indent = { enable = true }
-})
