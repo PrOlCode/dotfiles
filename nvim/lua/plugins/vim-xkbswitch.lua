@@ -1,9 +1,9 @@
-return { 
-  {
-    'ivanesmantovich/xkbswitch.nvim',
-    lazy = false,
-    config = function()
-      require('xkbswitch').setup()
-    end,
-  }
+return {
+	{
+		"ivanesmantovich/xkbswitch.nvim",
+		lazy = false,
+		config = function()
+			require("xkbswitch").setup()
+		end,
+	},
 }
