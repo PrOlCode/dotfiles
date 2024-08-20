@@ -1,3 +1,5 @@
+--local opt = vim.opt
+
 -- Text formatting
 vim.opt.expandtab = true
 vim.opt.tabstop = 2
