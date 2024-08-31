@@ -1,0 +1,145 @@
+#!/usr/bin/python3
+
+import re
+import csv
+import os
+import argparse
+from collections import Counter
+import sqlite3
+
+# Constants
+CORPUS_PATH = "Yandex.Disk/English/Vocabulary/corpus_of_words.csv"
+ANKI_PATH = ".local/share/Anki2/olejon/collection.anki2"
+ANKI_DECKS_ID = [1705469727643, 1714544268485, ]
+CSV_DELIMITER = "\t"
+CORPUS_DEFAULT_RANK = 99999
+
+
+def count_words(text):
+    """
+    Counts occurrences of each word in the provided text. Only English words are considered.
+    """
+
+    words = re.findall(r'\b[a-zA-Z]+\b', text.lower())
+    return Counter(words)
+
+
+def load_corpus(corpus_file_path):
+    """
+    Loads the corpus file and returns a dictionary mapping words to their ranks.
+    """
+
+    corpus_dict = {}
+    with open(corpus_file_path, 'r', encoding='utf-8') as file:
+        reader = csv.reader(file, delimiter=CSV_DELIMITER)
+        for rank, word in reader:
+            corpus_dict[word] = rank
+    return corpus_dict
+
+
+def add_corpus_ranking(word_count, corpus_dict):
+    """
+    Adds corpus ranking to each word in the word count dictionary.
+    """
+
+    return {word: (count, int(corpus_dict.get(word, CORPUS_DEFAULT_RANK)))
+            for word, count in word_count.items()}
+
+
+def save_to_csv(data, filename, sort_key=None):
+    """
+    Saves the given data to a CSV file.The data is sorted based on sort_key if provided.
+    """
+
+    with open(filename, 'w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file, delimiter=CSV_DELIMITER)
+        for item in sorted(data.items(), key=lambda x: x[1][sort_key] if sort_key is not None else x):
+            writer.writerow([item[0]] + list(item[1]))
+
+
+def removing_duplicates_existing_in_anki(ranked_words, anki_database_path):
+    """
+     Remove duplicate words that are in the anki database
+    """
+
+    try:
+        conn = sqlite3.connect(anki_database_path)
+        cursor = conn.cursor()
+        # query = f"SELECT flds FROM notes WHERE mod IN ({','.join(map(str, ANKI_DESKS))})"
+
+        query = f"SELECT notes.flds FROM decks JOIN cards ON decks.id = cards.did JOIN notes ON " \
+                f"notes.id = cards.nid WHERE decks.id IN ({','.join(map(str, ANKI_DECKS_ID))});"
+
+        cursor.execute(query)
+        notes = cursor.fetchall()
+
+        for tuple_item in notes:
+            value = tuple_item[0].split('\x1f')[0]
+            ranked_words.pop(value, None)
+
+        conn.close()
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+
+    return ranked_words
+
+
+def process_text_file(input_file_path, corpus_file_path, anki_database_path, sort_alphabetical):
+    """
+    Processes the text file: counts words, ranks them using a corpus, and saves the results in CSV format.
+    """
+
+    with open(input_file_path, 'r', encoding='utf-8') as file:
+        text = file.read()
+
+    word_count = count_words(text)
+    corpus_dict = load_corpus(corpus_file_path)
+    ranked_words = add_corpus_ranking(word_count, corpus_dict)
+    ranked_words = removing_duplicates_existing_in_anki(ranked_words, anki_database_path)
+
+    base_name = os.path.splitext(os.path.basename(input_file_path))[0]
+    output_filename = f'{base_name}_{"alphabetical" if sort_alphabetical else "ranked_blank"}.txt'
+    save_to_csv(ranked_words, output_filename, sort_key=(None if sort_alphabetical else 1))
+
+    return output_filename
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Process a file and rank words based on a corpus.")
+    parser.add_argument("filename", type=str, help="Name of the file to process")
+    parser.add_argument("-a", "--alphabetical", action="store_true",
+                        help="Sort words alphabetically if this flag is set")
+    parser.add_argument("-c", "--clearing", action="store_true",
+                        help="Clear file to only first column if this flag is set")
+    return parser.parse_args()
+
+
+def clear_file(file_path):
+    """
+    Clear file to only first column if this flag is set
+    """
+
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+    with open(file_path, 'w') as file:
+        for line in lines:
+            first_column = line.split('\t')[0]
+            file.write(first_column + '\n')
+
+
+def main():
+    args = parse_arguments()
+
+    if args.clearing:
+        clear_file(args.filename)
+        print(f"File cleared: {args.filename}")
+    else:
+        home_directory = os.path.expanduser('~')
+        corpus_file_path = os.path.join(home_directory, CORPUS_PATH)
+        anki_database_path = os.path.join(home_directory, ANKI_PATH)
+        output_file = process_text_file(args.filename, corpus_file_path, anki_database_path, args.alphabetical)
+        print(f"Output saved to: {output_file}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,90 @@
+#!/usr/bin/python3
+
+import requests
+from requests.auth import HTTPBasicAuth
+from datetime import datetime, timedelta
+import argparse
+
+
+# Функция для получения данных отчета
+def get_report(api_token, workspace_id, start_date, user_agent):
+    report_url = f'https://api.track.toggl.com/reports/api/v2/details?workspace_id={workspace_id}&since={start_date}&until={start_date}&user_agent={user_agent}'
+    auth = HTTPBasicAuth(api_token, 'api_token')
+    response = requests.get(report_url, auth=auth)
+    return response.json()
+
+
+# Функция для фильтрации данных
+def filter_data(report_data):
+    return [{'project': entry['project'], 'tags': entry['tags'][0], 'description': entry['description'],
+             'duration': int(entry['dur']) / 1000} for entry in report_data['data']]
+
+
+# Функция для суммирования продолжительности по проектам и тегам
+def summarize_durations(filtered_data):
+    project_tag_durations = {}
+    for entry in filtered_data:
+        project = entry['project']
+        duration = entry['duration']
+        tag = entry['tags']
+        description = entry['description']
+
+        # if project == 'ENGLISH' and tag == 'practice' and description == 'words':
+        # tag = 'words'
+
+        if project == 'ROUTINE':
+            tag = 'admin'
+
+        if project not in project_tag_durations:
+            project_tag_durations[project] = {}
+
+        if tag in project_tag_durations[project]:
+            project_tag_durations[project][tag] += duration
+        else:
+            project_tag_durations[project][tag] = duration
+
+    return project_tag_durations
+
+
+# Функция для вывода результатов
+def print_durations(project_tag_durations, key_order):
+    total_seconds = 0
+    for project in key_order:
+        if project in project_tag_durations:
+            tags = project_tag_durations[project]
+            for tag in sorted(tags.keys()):
+                total_duration = tags[tag]
+                print(f"{project}: {tag} = {round(total_duration / 60)}")
+                total_seconds += total_duration
+
+    hours = int(total_seconds // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+    seconds = int(total_seconds % 60)
+    print(f"{hours:02}:{minutes:02}:{seconds:02}")
+
+
+def main():
+    key_order = ['SPORT', 'OT', 'CAREER', 'ENGLISH', 'FINANCE', 'CONTRIBUTION', 'ROUTINE']
+    parser = argparse.ArgumentParser(description='Get Toggl report for a specific date.')
+    parser.add_argument('start_date', type=str, help='Start date for the report (format: YYYY-MM-DD)')
+    args = parser.parse_args()
+
+    if args.start_date.lower() == 'today':
+        start_date = datetime.now().strftime('%Y-%m-%d')
+    elif args.start_date.lower() == 'yesterday':
+        start_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    else:
+        start_date = args.start_date
+
+    api_token = '06651f8178d17463025b96182908185d'
+    workspace_id = 4682110
+    user_agent = 'olejon@google.com'
+
+    report_data = get_report(api_token, workspace_id, start_date, user_agent)
+    filtered_data = filter_data(report_data)
+    project_tag_durations = summarize_durations(filtered_data)
+    print_durations(project_tag_durations, key_order)
+
+
+if __name__ == "__main__":
+    main()

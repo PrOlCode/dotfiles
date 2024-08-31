@@ -1,0 +1,15 @@
+#!/bin/bash
+
+#Converting a video file to an audio file
+
+# Check if there is an argument (file name)
+if [ "$#" -ne 1 ]; then
+    echo "Использование: $0 <имя файла>"
+    exit 1
+fi
+
+# Extract the base filename without extension
+base=${1%.*}
+
+# File conversion
+ffmpeg -i "$base.mp4" -vn -acodec aac -b:a 96k "$base.m4a"
