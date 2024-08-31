@@ -1,0 +1,6 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Type=Application
+Name=autoload
+NoDisplay=true
+Exec=/home/olejon/.local/bin/autoload.sh

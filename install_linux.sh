@@ -57,6 +57,7 @@ pacman_packages=(
   tree
   tree-sitter-cli
   tmux
+  ttf-jetbrains-mono-nerd
   unzip
   w3m       # for ranger
   yt-dlp
