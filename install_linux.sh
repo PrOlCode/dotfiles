@@ -18,12 +18,14 @@ fi
 pacman_packages=(
   alacritty 
   atril
+  bat       # clone cat
   base-devel
   bitwarden
   bottom
   brave-browser
   code
   docker
+  fzf
   gdu
   # geany
   git
@@ -44,6 +46,7 @@ pacman_packages=(
   pavucontrol
   # pycharm-community-edition
   python
+  python-mutagen
   python-pip
   pyright
   qbittorrent
