@@ -125,4 +125,8 @@ git config --global user.name "Oleg Prikhodko" && git config --global user.email
 ssh-keygen
 
 echo "Далее данные из .ssh/id_rsa.pub добавляем в GitHub -> Settings -> SSH and GPG keys -> New SSH key..."
-echo "Далее запускаем yandex-disk setup и настраиваем демон..."
+echo "Далее yandex-disk setup и настраиваем демон... и ОСТАНАВЛИВАЕМ ДЕМОН!!! path to dir: /home/Data/Yandex.Disk"
+
+
+
+
