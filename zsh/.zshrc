@@ -70,7 +70,19 @@ ZSH_THEME="robbyrussell"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git)
+
+autoload -Uz compinit
+compinit
+
+# Подключение fzf-tab
+source ~/.oh-my-zsh/custom/plugins/fzf-tab/fzf-tab.plugin.zsh
+
+plugins=( 
+  git
+  fzf-tab
+  zsh-autosuggestions
+  fzf-zsh-plugin
+)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -112,3 +124,8 @@ alias rs="python manage.py runserver"
 alias t="tmux"
 
 export EDITOR="nvim"
+source /home/olejon/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# Set up fzf key bindings and fuzzy completion
+source <(fzf --zsh)
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh

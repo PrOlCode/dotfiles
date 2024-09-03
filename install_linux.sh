@@ -63,9 +63,12 @@ pacman_packages=(
   ttf-jetbrains-mono-nerd
   unzip
   w3m       # for ranger
+  wmctrl      # Control your EWMH compliant window manager from command line
   yt-dlp
   zip
   zsh
+  zsh-autosuggestions
+  zsh-syntax-highlighting
 )
 
 # Список программ для установки через AUR с помощью yay
