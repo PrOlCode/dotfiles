@@ -9,7 +9,7 @@ opt.shiftwidth = 2
 
 
 --vim.g.background = "light"
---vim.opt.swapfile = false
+opt.swapfile = false
 
 -- Navigate vim panes better
 -- vim.keymap.set('n', '<c-k>', ':wincmd k<CR>')
