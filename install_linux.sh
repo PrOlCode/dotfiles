@@ -67,8 +67,6 @@ pacman_packages=(
   yt-dlp
   zip
   zsh
-  zsh-autosuggestions
-  zsh-syntax-highlighting
 )
 
 # Список программ для установки через AUR с помощью yay
@@ -129,7 +127,3 @@ ssh-keygen
 
 echo "Далее данные из .ssh/id_rsa.pub добавляем в GitHub -> Settings -> SSH and GPG keys -> New SSH key..."
 echo "Далее yandex-disk setup и настраиваем демон... и ОСТАНАВЛИВАЕМ ДЕМОН!!! path to dir: /home/Data/Yandex.Disk"
-
-
-
-
