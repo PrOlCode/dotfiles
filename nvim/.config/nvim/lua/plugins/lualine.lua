@@ -5,7 +5,9 @@ return{
     require("lualine").setup({
       options = {
         -- theme = 'auto'
-        theme = "gruvbox",
+        -- theme = "gruvbox",
+        -- theme = "iceberg",
+        theme = "nord",
       },
     })
   end,
