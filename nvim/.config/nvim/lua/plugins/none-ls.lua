@@ -5,7 +5,7 @@ return {
     null_ls.setup({
       sources = {
         -- null_ls.builtins.diagnostics.selene,
-        -- null_ls.builtins.formatting.stylua,
+        null_ls.builtins.formatting.stylua,
         -- null_ls.builtins.diagnostics.golangci_lint,
         -- null_ls.builtins.formatting.golines,
         -- null_ls.builtins.diagnostics.pylint,
