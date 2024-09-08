@@ -114,25 +114,29 @@ source $ZSH/oh-my-zsh.sh
 alias act="source ./venv/bin/activate"
 alias c="clear"
 alias fz='fzf --preview="bat --color=always {}"'
+alias nvim-astro="NVIM_APPNAME=nvim_AstroNvim nvim"
+alias nvim-kick="NVIM_APPNAME=nvim_KickStart nvim"
+alias nvim-lazy="NVIM_APPNAME=nvim_LazyVim nvim"
+alias nvim-normal="NVIM_APPNAME=nvim_NormalNvim nvim"
+alias nvim-chad="NVIM_APPNAME=nvim_NvChad nvim"
 alias r='ranger --choosedir=$HOME/.rangerdir; LASTDIR=`cat $HOME/.rangerdir`; cd "$LASTDIR"'
 alias rs="python manage.py runserver"
 alias t="tmux"
+
+function nvims() {
+  items=("default" "nvim_AstroNvim" "nvim_KickStart" "nvim_LazyVim" "nvim_NormalNvim" "nvim_NvChad")
+  config=$(printf "%s\n" "${items[@]}" | fzf --prompt=" Neovim Config  " --height=~50% --layout=reverse --border --exit-0)
+  if [[ -z $config ]]; then
+    echo "Nothing selected"
+    return 0
+  elif [[ $config == "default" ]]; then
+    config=""
+  fi
+  NVIM_APPNAME=$config nvim $@
+}
+bindkey -s ^n "nvims\n"
 
 export EDITOR="nvim"
 source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 # Set up fzf key bindings and fuzzy completion
 source <(fzf --zsh)
-# [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-
-
-
-
-
-
-
-
-
-
-
-
-
