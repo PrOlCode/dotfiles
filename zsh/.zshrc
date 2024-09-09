@@ -114,6 +114,7 @@ source $ZSH/oh-my-zsh.sh
 alias act="source ./venv/bin/activate"
 alias c="clear"
 alias fz='fzf --preview="bat --color=always {}"'
+alias gr='function _gorunfmt() { gofmt -w "$1" && go run "$1"; }; _gorunfmt'
 alias nvim-astro="NVIM_APPNAME=nvim_AstroNvim nvim"
 alias nvim-kick="NVIM_APPNAME=nvim_KickStart nvim"
 alias nvim-lazy="NVIM_APPNAME=nvim_LazyVim nvim"
@@ -122,6 +123,7 @@ alias nvim-chad="NVIM_APPNAME=nvim_NvChad nvim"
 alias r='ranger --choosedir=$HOME/.rangerdir; LASTDIR=`cat $HOME/.rangerdir`; cd "$LASTDIR"'
 alias rs="python manage.py runserver"
 alias t="tmux"
+alias v="nvim"
 
 function nvims() {
   items=("default" "nvim_AstroNvim" "nvim_KickStart" "nvim_LazyVim" "nvim_NormalNvim" "nvim_NvChad")

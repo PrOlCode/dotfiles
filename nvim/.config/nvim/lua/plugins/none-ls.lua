@@ -8,7 +8,8 @@ return {
           -- null_ls.builtins.diagnostics.selene, -- lua linter
           null_ls.builtins.formatting.stylua,    -- lua formatter
           null_ls.builtins.diagnostics.golangci_lint, -- go linter
-          null_ls.builtins.diagnostics.pylint,   -- python linter
+          -- null_ls.builtins.diagnostics.flake8,   -- python linter
+          -- null_ls.builtins.diagnostics.pylint,   -- python linter
           null_ls.builtins.formatting.black,     -- python formatter
         },
       })
@@ -21,10 +22,11 @@ return {
     config = function()
       require("mason-tool-installer").setup({
         ensure_installed = {
-          "selene",
+          -- "selene",
           "stylua",
           "golangci-lint",
-          "pylint",
+          -- "flake8",
+          -- "pylint",
           "black",
         },
         auto_update = false,
