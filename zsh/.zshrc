@@ -77,7 +77,7 @@ ZSH_THEME="robbyrussell"
 # ???Подключение fzf-tab
 # ???source ~/.oh-my-zsh/custom/plugins/fzf-tab/fzf-tab.plugin.zsh
 
-plugins=(git zsh-autosuggestions)
+plugins=(git vi-mode zsh-autosuggestions)
 
 source $ZSH/oh-my-zsh.sh
 
