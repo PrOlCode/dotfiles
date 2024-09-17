@@ -25,6 +25,7 @@ pacman_packages=(
   brave-browser
   code
   docker
+  fd
   fzf
   gdu
   # geany
