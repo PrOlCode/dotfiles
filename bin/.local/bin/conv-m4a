@@ -12,4 +12,4 @@ fi
 base=${1%.*}
 
 # File conversion
-ffmpeg -i "$base.mp4" -vn -acodec aac -b:a 96k "$base.m4a"
+ffmpeg -i "$base.mp4" -vn -acodec aac -b:a 48k "$base.m4a"
