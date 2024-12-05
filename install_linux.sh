@@ -25,6 +25,7 @@ pacman_packages=(
   brave-browser
   code
   docker
+  docker-compose
   fd
   fzf
   gdu
@@ -32,6 +33,7 @@ pacman_packages=(
   git
   gitg
   gnome-disk-utility
+  gthumb
   # gthumb
   htop
   lazygit
