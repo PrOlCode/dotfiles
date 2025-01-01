@@ -10,7 +10,7 @@ import sqlite3
 # Constants
 CORPUS_PATH = "Yandex.Disk/English/Vocabulary/corpus_of_words.csv"
 ANKI_PATH = ".local/share/Anki2/olejon/collection.anki2"
-ANKI_DECKS_ID = [1705469727643, 1714544268485, ]
+ANKI_DECKS_ID = [1705469727643, 1714544268485, 1717690519928, 1734443113198, ]
 CSV_DELIMITER = "\t"
 CORPUS_DEFAULT_RANK = 99999
 
