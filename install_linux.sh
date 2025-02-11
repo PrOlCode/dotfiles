@@ -1,53 +1,6 @@
 #!/bin/bash
 
-set -e  # Остановить выполнение при ошибке
-exec 2>install_errors.log  # Логирование ошибок
-
-log_file="install.log"
-exec > >(tee -a "$log_file")  # Дублируем вывод в файл
-
-echo "=============================="
-echo "  🚀 Начало установки"
-echo "=============================="
-
-# Проверка, запущен ли скрипт от root
-if [[ $EUID -eq 0 ]]; then
-  echo "❌ Этот скрипт не должен запускаться от root. Запустите без sudo."
-  exit 1
-fi
-
-# Функция обработки ошибок
-error_handler() {
-  echo "❌ Ошибка! Подробности см. в install_errors.log" >&2
-  exit 1
-}
-trap error_handler ERR  # Вызов функции при ошибке
-
-# Обновление системы
-echo "🔄 Обновление системы..."
-sudo pacman -Syu --noconfirm
-echo "✅ Обновление системы завершено."
-
-# Проверка и установка yay (AUR helper)
-install_yay() {
-  if ! command -v yay &>/dev/null; then
-    echo "🔧 yay не установлен. Устанавливаю yay..."
-    sudo pacman -S --needed --noconfirm git base-devel
-
-    TMP_DIR=$(mktemp -d)  # Создание временной папки
-    git clone https://aur.archlinux.org/yay.git "$TMP_DIR/yay"
-    cd "$TMP_DIR/yay"
-    makepkg -si --noconfirm
-    cd ~
-    rm -rf "$TMP_DIR"
-  else
-    echo "✅ yay уже установлен."
-  fi
-}
-
-install_yay
-
-# Список программ для установки через pacman
+# Устанвливаемые пакеты через pacman
 pacman_packages=(
   alacritty 
   atril
@@ -61,7 +14,7 @@ pacman_packages=(
   docker-compose
   fd
   fzf
-  # geany
+  geany
   git
   gitg
   gnome-disk-utility
@@ -77,7 +30,6 @@ pacman_packages=(
   npm
   obsidian
   # openoffice-bin 
-  # pavucontrol
   # pycharm-community-edition
   python
   python-mutagen
@@ -92,7 +44,7 @@ pacman_packages=(
   # torbrowser-launcher
   tree
   tmux
-  # ttf-jetbrains-mono-nerd
+  ttf-jetbrains-mono-nerd
   unzip
   w3m			# for ranger
   wmctrl		# Control your EWMH compliant window manager from command line
@@ -107,7 +59,7 @@ pacman_packages=(
   tree-sitter-cli
 )
 
-# Список программ для установки через AUR с помощью yay
+# Устанвливаемые пакеты через yay (AUR)
 aur_packages=(
   # anydesk-bin
   google-chrome
@@ -122,27 +74,49 @@ aur_packages=(
   # zoom
 )
 
-# Функция для установки пакетов с помощью pacman
-install_pacman_packages() {
-  echo "📦 Установка пакетов из официальных репозиториев..."
-  sudo pacman -S --needed --noconfirm "${pacman_packages[@]}"
-  echo "✅ Установка pacman-пакетов завершена."
+set -euo pipefail
+
+# Файл для логирования ошибок
+LOGFILE="install_errors.log"
+
+# Функция для логирования ошибок и завершения скрипта
+error_exit() {
+  echo "❌ Ошибка на строке ${1:-"unknown"}. Подробности в $LOGFILE"
+  exit 1
 }
 
-# Функция для установки пакетов из AUR с помощью yay
-install_aur_packages() {
-  echo "📦 Установка пакетов из AUR..."
-  yay -S --needed --noconfirm "${aur_packages[@]}"
-  echo "✅ Установка AUR-пакетов завершена."
-}
+# Ловим любые ошибки и вызываем error_exit
+trap 'error_exit $LINENO' ERR
 
-# Выполнение установки
-install_pacman_packages
-install_aur_packages
+echo "========================================"
+echo "Установка пакетов через pacman..."
+sudo pacman -S --needed --noconfirm "${pacman_packages[@]}" 2>> "$LOGFILE" || error_exit $LINENO
 
-echo "=============================="
-echo "  🎉 Все пакеты установлены успешно!"
-echo "=============================="
+# Проверка и установка yay (AUR helper)
+if ! command -v yay &> /dev/null; then
+  echo "========================================"
+  echo "yay не найден. Устанавливаю yay..."
+  # Устанавливаем необходимые пакеты для сборки yay
+  sudo pacman -S --needed --noconfirm git base-devel 2>> "$LOGFILE" || error_exit $LINENO
+
+  TMP_DIR=$(mktemp -d) || error_exit $LINENO
+  git clone https://aur.archlinux.org/yay.git "$TMP_DIR/yay" 2>> "$LOGFILE" || error_exit $LINENO
+  cd "$TMP_DIR/yay" || error_exit $LINENO
+  makepkg -si --noconfirm 2>> "$LOGFILE" || error_exit $LINENO
+  cd ~ || error_exit $LINENO
+  rm -rf "$TMP_DIR" || error_exit $LINENO
+else
+  echo "========================================"
+  echo "yay уже установлен."
+fi
+
+echo "========================================"
+echo "Установка пакетов через yay (AUR)..."
+yay -Syu --noconfirm "${aur_packages[@]}" 2>> "$LOGFILE" || error_exit $LINENO
+yay -S --needed --noconfirm "${aur_packages[@]}" 2>> "$LOGFILE" || error_exit $LINENO
+
+echo "========================================"
+echo "🎉 Все пакеты успешно установлены!"
 
 # Настройка Git и SSH
 echo "🔑 Настройка Git и SSH..."
