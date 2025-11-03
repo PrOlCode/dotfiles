@@ -23,6 +23,7 @@ pacman_packages=(
   lazygit
   lf
   # libreoffice-still
+  # libreoffice-still-ru
   mate-calc
   mpv
   neofetch
@@ -35,18 +36,18 @@ pacman_packages=(
   python-mutagen
   python-pip
   # pyright
-  # qbittorrent
+  qbittorrent
   ranger
   scrot
   # sqlitebrowser
   stow
   telegram-desktop
-  # torbrowser-launcher
+  torbrowser-launcher
   tree
   tmux
   ttf-jetbrains-mono-nerd
+  ueberzugpp	# for ranger
   unzip
-  w3m			# for ranger
   wmctrl		# Control your EWMH compliant window manager from command line
   yt-dlp
   zed
@@ -57,11 +58,14 @@ pacman_packages=(
   gdu
   ripgrep
   tree-sitter-cli
+  vim-spell-ru
 )
 
 # Устанвливаемые пакеты через yay (AUR)
 aur_packages=(
+  alacritty-theme-switcher
   # anydesk-bin
+  dupeguru
   google-chrome
   jdownloader2
   input-remapper-git
@@ -71,7 +75,7 @@ aur_packages=(
   xkb-switch
   yandex-browser
   yandex-disk
-  # zoom
+  zoom
 )
 
 set -euo pipefail
