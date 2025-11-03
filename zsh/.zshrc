@@ -109,7 +109,21 @@ source $ZSH/oh-my-zsh.sh
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
- 
+
+function app_d() {
+  xfconf-query -c xsettings -p /Net/ThemeName -s "Matcha-dark-sea"
+  alacritty-theme-switcher catppuccin_mocha
+  # xfce4-panel -r
+  xfce4-appearance-settings &
+}
+
+function app_l() {
+  xfconf-query -c xsettings -p /Net/ThemeName -s "Matcha-sea"
+  alacritty-theme-switcher github_light
+  # xfce4-panel -r
+  xfce4-appearance-settings &
+}
+
 # Aliases
 alias act="source ./venv/bin/activate"
 alias c="clear"
