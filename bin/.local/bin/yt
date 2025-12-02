@@ -1,0 +1,138 @@
+#!/usr/bin/python3
+import sys
+import subprocess
+import re
+from typing import List
+
+# Приоритеты форматов по размеру видео
+SMALL_VIDEO_FORMATS = ["93-2", "93-1", "93-0", "93", "94-2", "94-1", "94-0", "94"]
+MEDIUM_VIDEO_FORMATS = ["95-2", "95-1", "95-0", "95", "96-2", "96-1", "96-0", "96"]
+LARGE_VIDEO_FORMATS = ["96-2", "96-1", "96-0", "96"]
+
+SIZE_MODE_FORMATS = {
+    "s": SMALL_VIDEO_FORMATS,
+    "m": MEDIUM_VIDEO_FORMATS,
+    "l": LARGE_VIDEO_FORMATS,
+}
+
+
+def get_available_format_ids(url: str) -> List[str]:
+    """
+    Возвращает список ID всех форматов (колонка format_id из yt-dlp -F).
+    """
+    try:
+        result = subprocess.run(
+            ["yt-dlp", "-F", url],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print("Ошибка при получении форматов:\n", e.stderr, file=sys.stderr)
+        sys.exit(1)
+
+    format_ids: List[str] = []
+    for line in result.stdout.splitlines():
+        # Строки форматов обычно начинаются с числа (возможно с суффиксом -1/-2 и т.п.)
+        if re.match(r"^\d+(-\w+)?\s", line):
+            format_id = line.split()[0]
+            format_ids.append(format_id)
+
+    return format_ids
+
+
+def choose_best_format(available: List[str], priority_list: List[str]) -> str:
+    """
+    Выбирает первый подходящий формат из приоритетного списка.
+    Если не найдено — завершает программу с ошибкой.
+    """
+    for fmt in priority_list:
+        if fmt in available:
+            print(f"[+] Выбран формат: {fmt}")
+            return fmt
+    print("[!] Нет подходящего формата среди:", ", ".join(priority_list))
+    sys.exit(1)
+
+
+def build_command(url: str, mode: str, available_formats: List[str]) -> List[str]:
+    """
+    Формирует команду yt-dlp с учётом режима и добавлением --keep-video.
+
+    mode:
+      - 's' / '-s' — маленькое видео
+      - 'm' / '-m' — среднее видео
+      - 'l' / '-l' — крупное видео
+      - иначе: воспринимается как прямой формат-код yt-dlp (например '93' или '93-1')
+    """
+    base_command = ["yt-dlp", "--keep-video"]
+
+    normalized_mode = mode.lstrip("-").lower()
+
+    if normalized_mode in SIZE_MODE_FORMATS:
+        video_list = SIZE_MODE_FORMATS[normalized_mode]
+        video = choose_best_format(available_formats, video_list)
+        return base_command + ["-f", video, url]
+
+    # Обычный формат-код
+    return base_command + ["-f", mode, url]
+    # return base_command + ["-f", mode, "--extract-audio", "--audio-format", "m4a", url]
+
+
+def print_usage() -> None:
+    print("Использование:")
+    print("  script.py URL")
+    print("    Показать список доступных форматов.")
+    print()
+    print("  script.py URL [s|m|l|FORMAT]")
+    print("    s / m / l  - выбрать лучший формат для small/medium/large видео.")
+    print("    FORMAT     - явный формат-код yt-dlp (например 93 или 93-1).")
+    print()
+    print("  script.py URL VIDEO_FORMAT AUDIO_FORMAT")
+    print("    Скачать видео+аудио с указанными форматами через yt-dlp -f VIDEO+AUD.")  # noqa: E501
+
+
+def main() -> None:
+    args = sys.argv[1:]
+
+    if len(args) < 1:
+        print("Ошибка: параметр-1 (ссылка) обязателен.\n")
+        print_usage()
+        sys.exit(1)
+
+    url = args[0]
+
+    # Убираем параметры плейлиста, если есть
+    if "&list=" in url:
+        url = url.split("&list=", 1)[0]
+
+    if len(args) == 1:
+        # Просто показать форматы
+        subprocess.run(["yt-dlp", "-F", url])
+        return
+
+    # Нужен список доступных форматов для авто-выбора
+    available_formats = get_available_format_ids(url)
+
+    if len(args) == 2:
+        mode = args[1]
+        command = build_command(url, mode, available_formats)
+
+    elif len(args) == 3:
+        # Соответствует подсказке: URL VIDEO_FORMAT AUDIO_FORMAT
+        video_format = args[1]
+        audio_format = args[2]
+        format_code = f"{video_format}+{audio_format}"
+        command = ["yt-dlp", "-f", format_code, url]
+        print(f"[+] Формат видео+аудио: {format_code}")
+    else:
+        print("Ошибка: допустимы максимум 3 параметра.\n")
+        print_usage()
+        sys.exit(1)
+
+    subprocess.run(command)
+
+
+if __name__ == "__main__":
+    main()
+
