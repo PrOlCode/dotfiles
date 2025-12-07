@@ -64,7 +64,7 @@ def print_durations(project_tag_durations, key_order):
 
 
 def main():
-    key_order = ['OT', 'SPORT AND HEALTH', 'FINANCE AND CAREER', 'ENGLISH', 'CONTRIBUTION', 'ROUTINE']
+    key_order = ['SPORT AND HEALTH', 'OT', 'FINANCE AND CAREER', 'ENGLISH', 'CONTRIBUTION', 'ROUTINE']
     parser = argparse.ArgumentParser(description='Get Toggl report for a specific date.')
     parser.add_argument('start_date', type=str, help='Start date for the report (format: YYYY-MM-DD)')
     args = parser.parse_args()
