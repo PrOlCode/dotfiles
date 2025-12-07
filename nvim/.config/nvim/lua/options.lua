@@ -83,8 +83,11 @@ vim.opt.wrap = true
 -- vim.opt.laststatus = 2
 -- vim.opt.vb = true
 -- vim.opt.ruler = true
--- vim.opt.spell = true
--- vim.opt.spelllang = "en_us"
+vim.opt.spell = true
+vim.opt.spelllang = {"en_us", "ru"}
+vim.opt.spellfile = vim.fn.stdpath("config") .. "/spell/custom.utf-8.add"
+
+
 -- vim.opt.autoindent = true
 -- vim.opt.colorcolumn = "120"
 -- vim.opt.textwidth = 120
