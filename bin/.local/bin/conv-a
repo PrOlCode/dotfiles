@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Преобразование .mp4 файлов в .m4a с битрейтом 48k
+
+convert_file() {
+    local INPUT_FILE="$1"
+    local BASENAME="${INPUT_FILE%.mp4}"
+    local OUTPUT_FILE="${BASENAME}.m4a"
+
+    echo "Конвертация: $INPUT_FILE → $OUTPUT_FILE"
+    # ffmpeg -i "$INPUT_FILE" -vn -c:a aac -b:a 48k "$OUTPUT_FILE"
+    ffmpeg -i "$INPUT_FILE" -vn -c:a aac -b:a 64k "$OUTPUT_FILE"
+	# ffmpeg -i "$INPUT_FILE" -vn -c:a copy "$OUTPUT_FILE"
+}
+
+# Проверка аргумента
+if [ "$#" -ne 1 ]; then
+    echo "Использование:"
+    echo "  $0 <файл.mp4>     — конвертировать один файл"
+    echo "  $0 -f             — конвертировать все .mp4 файлы в текущей папке"
+    exit 1
+fi
+
+# Режим: все файлы
+if [ "$1" == "-f" ]; then
+    shopt -s nullglob
+    MP4_FILES=(*.mp4)
+
+    if [ ${#MP4_FILES[@]} -eq 0 ]; then
+        echo "Нет .mp4 файлов в текущей директории."
+        exit 0
+    fi
+
+    for FILE in "${MP4_FILES[@]}"; do
+        convert_file "$FILE"
+    done
+
+# Режим: один файл
+elif [[ "$1" == *.mp4 && -f "$1" ]]; then
+    convert_file "$1"
+
+# Ошибка: несуществующий или неправильный файл
+else
+    echo "Ошибка: файл \"$1\" не существует или не является .mp4"
+    exit 2
+fi
+

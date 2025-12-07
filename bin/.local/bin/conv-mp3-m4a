@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# Конвертация MP3 → M4A с помощью ffmpeg
+
+# Проверка наличия аргументов
+if [ "$#" -lt 1 ]; then
+    echo "Использование:"
+    echo "  $0 <имя файла.mp3>   - конвертировать один файл"
+    echo "  $0 -f                - конвертировать все mp3 в текущей папке"
+    exit 1
+fi
+
+# Режим: все файлы
+if [ "$1" == "-f" ]; then
+    shopt -s nullglob nocasematch
+    for INPUT_FILE in *.mp3; do
+        BASENAME="${INPUT_FILE%.*}"
+        OUTPUT_FILE="${BASENAME}.m4a"
+        echo "Конвертация: $INPUT_FILE → $OUTPUT_FILE"
+        ffmpeg -i "$INPUT_FILE" -c:a aac -b:a 48k "$OUTPUT_FILE"
+    done
+    shopt -u nullglob nocasematch
+    exit 0
+fi
+
+# Режим: один файл
+INPUT_FILE="$1"
+
+# Проверка существования файла
+if [ ! -f "$INPUT_FILE" ]; then
+    echo "Ошибка: файл '$INPUT_FILE' не найден"
+    exit 3
+fi
+
+# Проверка расширения файла (.mp3, без учёта регистра)
+shopt -s nocasematch
+if [[ "$INPUT_FILE" != *.mp3 ]]; then
+    echo "Ошибка: файл должен иметь расширение .mp3"
+    exit 2
+fi
+shopt -u nocasematch
+
+# Удаление расширения .mp3
+BASENAME="${INPUT_FILE%.*}"
+OUTPUT_FILE="${BASENAME}.m4a"
+
+# Конвертация через ffmpeg
+echo "Конвертация: $INPUT_FILE → $OUTPUT_FILE"
+ffmpeg -i "$INPUT_FILE" -c:a aac -b:a 48k "$OUTPUT_FILE"
+
+
+
+
+
+# #!/bin/bash
+#
+# # Converting an MP3 file to an M4A audio file
+#
+# # Проверка количества аргументов
+# if [ "$#" -lt 1 ]; then
+#     echo "Использование: $0 <имя файла>"
+#     exit 1
+# fi
+#
+# INPUT_FILE="$1"
+#
+# # Проверка существования файла
+# if [ ! -f "$INPUT_FILE" ]; then
+#     echo "Ошибка: файл '$INPUT_FILE' не найден"
+#     exit 3
+# fi
+#
+# # Проверка расширения файла (.mp3, без учёта регистра)
+# shopt -s nocasematch
+# if [[ "$INPUT_FILE" != *.mp3 ]]; then
+#     echo "Ошибка: файл должен иметь расширение .mp3"
+#     exit 2
+# fi
+# shopt -u nocasematch
+#
+# # Удаление расширения .mp3
+# BASENAME="${INPUT_FILE%.*}"
+# OUTPUT_FILE="${BASENAME}.m4a"
+#
+# # Конвертация через ffmpeg
+# ffmpeg -i "$INPUT_FILE" -c:a aac -b:a 48k "$OUTPUT_FILE"
