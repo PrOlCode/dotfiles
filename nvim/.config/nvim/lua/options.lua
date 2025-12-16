@@ -44,7 +44,10 @@ vim.opt.showcmd = true
 --vim.opt.shell = "fish"
 --vim.opt.backupskip = { "/tmp/*", "/private/tmp/*" }
 --vim.opt.inccommand = "split"
---vim.opt.ignorecase = true -- Case insensitive searching UNLESS /C or capital in search
+
+vim.opt.ignorecase = true  -- Search ignores letter case by default
+vim.opt.smartcase = true   -- Uppercase letters in the search pattern enable case-sensitive matching
+
 --vim.opt.smarttab = true
 --vim.opt.breakindent = true
 vim.opt.wrap = true
