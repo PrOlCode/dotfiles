@@ -29,7 +29,6 @@ vim.keymap.set("n", "<leader>sl", function()
   end
 end, { desc = "Toggle Russian spelllang" })
 
-
 -- Макросы
 
 -- Хелпер для записи макросов в регистры

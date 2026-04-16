@@ -102,6 +102,19 @@ vim.opt.spellfile = vim.fn.stdpath("config") .. "/spell/custom.utf-8.add"
 -- vim.opt.tabstop = 3
 -- vim.opt.shiftwidth = 3
 --
+--
+	-- TabStop for MarkDoun files
+--
+-- vim.api.nvim_create_autocmd("FileType", {
+--   pattern = { "markdown" },
+--   callback = function()
+--     vim.opt_local.tabstop = 2
+--     vim.opt_local.softtabstop = 2
+--     vim.opt_local.shiftwidth = 2
+--     vim.opt_local.expandtab = false
+--   end,
+-- })
+--
 --  filetype related 
 -- vim.api.nvim_create_autocmd("FileType", {
 --     pattern = {"gitcommit"},
