@@ -8,7 +8,7 @@ return {
     -- Пример базовой конфигурации (всё можно оставить по умолчанию)
     outline_window = {
       position = "right",   -- или "left"
-      width = 30,
+      width = 20,
       auto_jump = false,    -- автоматический переход к символу
     },
     symbols = {
