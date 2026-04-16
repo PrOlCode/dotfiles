@@ -1,90 +1,532 @@
 #!/usr/bin/python3
 
-import requests
-from requests.auth import HTTPBasicAuth
-from datetime import datetime, timedelta
+"""
+toggl.py
+
+Назначение:
+-----------
+Скрипт реализует ETL-пайплайн:
+Toggl Track → агрегация по бизнес-категориям → Google Sheets.
+
+Основной сценарий:
+-----------
+1. Получает time entries за день из Toggl (Track API v9)
+2. Нормализует данные
+3. Агрегирует время по (project, tag)
+4. Маппит в бизнес-колонки (COLUMN_MAP)
+5. Записывает результат в Google Sheets
+
+Архитектура пайплайна:
+-----------
+1. parse_input_date()         → нормализация входной даты
+2. get_report()               → получение и нормализация данных Toggl
+3. summarize()                → агрегация (project, tag) → minutes
+4. print_summary()            → вывод в консоль (контроль)
+5. update_sheet()             → запись в Google Sheets
+
+Особенности:
+-----------
+- используется Track API v9 (не требует платного Reports API)
+- берётся только первый тег записи
+- длительность агрегируется и округляется до минут
+- несколько источников могут агрегироваться в одну колонку
+- отсутствующие маппинги выводятся в unmapped
+
+Форматы данных:
+-----------
+Вход:
+    ДД.ММ.ГГГГ | today | yesterday
+
+Промежуточные:
+    {
+        "data": [
+            {
+                "project": str,
+                "tags": [str],
+                "dur": int (ms)
+            }
+        ]
+    }
+
+Выход:
+    {
+        (project, tag): minutes
+    }
+
+Интеграции:
+-----------
+- Toggl Track API v9
+- Google Sheets (через service account)
+
+Безопасность:
+-----------
+- токены можно передавать через ENV
+- не рекомендуется хранить ключи в коде
+
+Пример запуска:
+-----------
+python toggl.py 16.04.2026
+"""
+
+import os
 import argparse
+from datetime import datetime, timedelta
+
+import gspread
+import requests
+from google.oauth2.service_account import Credentials
+from requests.auth import HTTPBasicAuth
+
+# ================= CONFIG =================
+# Можно переопределить через ENV
+TOGGL_API_TOKEN = os.getenv('TOGGL_API_TOKEN', '06651f8178d17463025b96182908185d')
+WORKSPACE_ID = os.getenv('TOGGL_WORKSPACE_ID', '4682110')
+USER_AGENT = os.getenv('TOGGL_USER_AGENT', 'olejon@google.com')
+SPREADSHEET_ID = os.getenv('SPREADSHEET_ID', '1EjyuryS44AXzi6UQwS0qkY4X1YoOjfke3Zdau7-23qs')
+SHEET_NAME = os.getenv('SHEET_NAME', 'Daily_Log_Raw')
+SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE', 'service_account.json')
+REQUEST_TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', '30'))
+# ==========================================
 
 
-# Функция для получения данных отчета
-def get_report(api_token, workspace_id, start_date, user_agent):
-    report_url = f'https://api.track.toggl.com/reports/api/v2/details?workspace_id={workspace_id}&since={start_date}&until={start_date}&user_agent={user_agent}'
-    auth = HTTPBasicAuth(api_token, 'api_token')
-    response = requests.get(report_url, auth=auth)
-    return response.json()
+COLUMN_MAP = {
+    ('LIFE OPS', 'admin'): 'Life Ops admin',
+    ('LIFE OPS', 'learn'): 'Life Ops learn',
+    ('LIFE OPS', 'production'): 'Life Ops production',
+
+    ('SPORT AND HEALTH', 'admin'): 'SH admin',
+    ('SPORT AND HEALTH', 'learn'): 'SH learn',
+    ('SPORT AND HEALTH', 'production'): 'SH production',
+
+    ('OT', 'admin'): 'OT admin',
+    ('OT', 'learn'): 'OT learn',
+    ('OT', 'production'): 'OT production',
+
+    ('FINANCE AND CAREER', 'admin'): 'FC admin',
+    ('FINANCE AND CAREER', 'learn'): 'FC learn',
+    ('FINANCE AND CAREER', 'production'): 'FC production',
+
+    ('ENGLISH', 'admin'): 'Eng admin',
+    ('ENGLISH', 'learn'): 'Eng learn',
+    ('ENGLISH', 'production'): 'Eng production',
+
+    ('CONTRIBUTION', 'admin'): 'Contribution',
+    ('CONTRIBUTION', 'learn'): 'Contribution',
+    ('CONTRIBUTION', 'production'): 'Contribution',
+
+    ('ROUTINE', 'admin'): 'Routine',
+    ('ROUTINE', 'learn'): 'Routine',
+    ('ROUTINE', 'production'): 'Routine',
+}
 
 
-# Функция для фильтрации данных
-def filter_data(report_data):
-    return [{'project': entry['project'], 'tags': entry['tags'][0], 'description': entry['description'],
-             'duration': int(entry['dur']) / 1000} for entry in report_data['data']]
+def parse_input_date(date_str: str) -> str:
+    """
+    Нормализует входную дату.
+
+    Поддерживает:
+    - ДД.ММ.ГГГГ
+    - today
+    - yesterday
+
+    Возвращает:
+        строку в формате ДД.ММ.ГГГГ
+
+    Исключения:
+        ValueError — если формат некорректный
+    """
+
+    value = date_str.strip().lower()
+
+    if value == 'today':
+        return datetime.now().strftime('%d.%m.%Y')
+
+    if value == 'yesterday':
+        return (datetime.now() - timedelta(days=1)).strftime('%d.%m.%Y')
+
+    try:
+        parsed = datetime.strptime(date_str, '%d.%m.%Y')
+        return parsed.strftime('%d.%m.%Y')
+    except ValueError as exc:
+        raise ValueError(
+            'Неверный формат даты. Используй ДД.ММ.ГГГГ, например: 28.02.2026'
+        ) from exc
 
 
-# Функция для суммирования продолжительности по проектам и тегам
-def summarize_durations(filtered_data):
-    project_tag_durations = {}
-    for entry in filtered_data:
-        project = entry['project']
-        duration = entry['duration']
-        tag = entry['tags']
-        description = entry['description']
-
-        # if project == 'ENGLISH' and tag == 'practice' and description == 'words':
-        # tag = 'words'
-
-        if project == 'ROUTINE':
-            tag = 'admin'
-
-        if project not in project_tag_durations:
-            project_tag_durations[project] = {}
-
-        if tag in project_tag_durations[project]:
-            project_tag_durations[project][tag] += duration
-        else:
-            project_tag_durations[project][tag] = duration
-
-    return project_tag_durations
+def sheet_date_to_toggl_date(sheet_date: str) -> str:
+    return datetime.strptime(sheet_date, '%d.%m.%Y').strftime('%Y-%m-%d')
 
 
-# Функция для вывода результатов
-def print_durations(project_tag_durations, key_order):
+def make_auth() -> HTTPBasicAuth:
+    return HTTPBasicAuth(TOGGL_API_TOKEN, 'api_token')
+
+
+def safe_get(url: str, *, params=None):
+    """
+    Универсальный wrapper для HTTP-запросов к Toggl API.
+
+    Делает:
+    - GET-запрос с авторизацией
+    - обрабатывает типовые ошибки API
+    - возвращает response при успешном статусе
+
+    Обрабатываемые ошибки:
+    - 401: неверный API токен
+    - 402: endpoint недоступен (например, платный API)
+    - 403: нет доступа
+    - 429: превышен rate limit
+
+    Исключения:
+        Exception с подробным описанием ошибки
+    """
+
+    response = requests.get(
+        url,
+        params=params,
+        auth=make_auth(),
+        timeout=REQUEST_TIMEOUT,
+        headers={'Content-Type': 'application/json'},
+    )
+
+    if response.status_code == 402:
+        raise Exception(
+            'Toggl вернул 402 Payment Required. ' \
+            'Это означает, что текущий endpoint недоступен для вашего workspace. ' \
+            f'URL: {response.url}\n'
+            f'Body: {response.text}'
+        )
+
+    if response.status_code == 401:
+        raise Exception(
+            'Toggl вернул 401 Unauthorized. Проверь TOGGL_API_TOKEN. ' \
+            f'URL: {response.url}\nBody: {response.text}'
+        )
+
+    if response.status_code == 403:
+        raise Exception(
+            'Toggl вернул 403 Forbidden. У пользователя нет доступа к ресурсу. ' \
+            f'URL: {response.url}\nBody: {response.text}'
+        )
+
+    if response.status_code == 429:
+        raise Exception(
+            'Toggl вернул 429 Too Many Requests. Слишком много запросов за короткое время. ' \
+            f'URL: {response.url}\nBody: {response.text}'
+        )
+
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        raise Exception(
+            f'Ошибка запроса к Toggl: HTTP {response.status_code}\n'
+            f'URL: {response.url}\n'
+            f'Body: {response.text}'
+        ) from exc
+
+    return response
+
+
+def get_time_entries(toggl_date: str):
+    """
+    Получает список time entries за конкретный день
+    через Toggl Track API v9.
+
+    Параметры:
+        toggl_date (str): дата в формате YYYY-MM-DD
+
+    Важно:
+    - используется полный диапазон суток (00:00–23:59 UTC)
+    - параметр meta=true добавляет project_name и tags
+
+    Возвращает:
+        list[dict] — список записей Toggl
+
+    Исключения:
+        Exception — если формат ответа неожиданный
+    """
+
+    url = 'https://api.track.toggl.com/api/v9/me/time_entries'
+    params = {
+        'start_date': f'{toggl_date}T00:00:00Z',
+        'end_date': f'{toggl_date}T23:59:59Z',
+        'meta': 'true',
+    }
+
+    response = safe_get(url, params=params)
+    payload = response.json()
+
+    if not isinstance(payload, list):
+        raise Exception(
+            'Ожидался список time entries от Toggl, но пришёл другой формат. '
+            f'Body: {payload}'
+        )
+
+    return payload
+
+
+def normalize_report(items):
+    """
+    Приводит ответ Track API v9 к внутреннему формату.
+
+    Зачем:
+    - унифицировать данные под summarize()
+    - абстрагироваться от структуры API
+
+    Преобразования:
+    - duration (сек) → dur (миллисекунды)
+    - project_name → project
+    - tags остаются как есть
+
+    Возвращает:
+        {
+            "data": [
+                {
+                    "project": str,
+                    "tags": list[str],
+                    "dur": int (ms)
+                }
+            ]
+        }
+    """
+
+    normalized = []
+
+    for entry in items:
+        duration = entry.get('duration', 0)
+        if duration is None or duration < 0:
+            duration = 0
+
+        project_name = entry.get('project_name') or ''
+        tags = entry.get('tags') or ['']
+
+        normalized.append({
+            'project': project_name,
+            'tags': tags,
+            'dur': int(duration) * 1000,
+        })
+
+    return {'data': normalized}
+
+
+def get_report(toggl_date: str):
+    items = get_time_entries(toggl_date)
+    return normalize_report(items)
+
+
+def summarize(report_data):
+    """
+    Агрегирует время по (project, tag).
+
+    Логика:
+    - берётся только первый тег записи
+    - суммируется длительность
+    - переводится в минуты
+
+    Параметры:
+        report_data: dict (результат normalize_report)
+
+    Возвращает:
+        dict:
+            {
+                (project, tag): minutes
+            }
+    """
+
+    result = {}
+
+    for entry in report_data.get('data', []):
+        project = entry.get('project') or ''
+        tags = entry.get('tags') or ['']
+        tag = tags[0] if tags else ''
+
+        dur_ms = entry.get('dur', 0) or 0
+        duration_seconds = dur_ms / 1000
+
+        key = (project, tag)
+        result[key] = result.get(key, 0) + duration_seconds
+
+    return {k: round(v / 60) for k, v in result.items()}
+
+
+def connect_sheet():
+    scopes = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+    ]
+
+    creds = Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE,
+        scopes=scopes
+    )
+
+    client = gspread.authorize(creds)
+    spreadsheet = client.open_by_key(SPREADSHEET_ID)
+    return spreadsheet.worksheet(SHEET_NAME)
+
+
+def find_row_by_date(ws, date_str: str):
+    dates = ws.col_values(1)
+
+    for i, value in enumerate(dates, start=1):
+        if value.strip() == date_str:
+            return i
+
+    return None
+
+
+def normalize_header(value: str) -> str:
+    return ' '.join(value.replace('\n', ' ').split()).strip().lower()
+
+
+def update_sheet(sheet_date: str, data):
+    """
+    Записывает агрегированные данные в Google Sheets.
+
+    Этапы:
+    1. Находит строку по дате
+    2. Читает заголовки
+    3. Нормализует названия колонок
+    4. Маппит (project, tag) → колонка
+    5. Агрегирует значения по колонкам
+    6. Записывает значения в таблицу
+
+    Особенности:
+    - несколько источников могут попадать в одну колонку
+    - unmapped данные выводятся в консоль
+    - запись идёт по ячейкам (update_cell)
+
+    Исключения:
+        Exception — если дата не найдена в таблице
+    """
+
+    ws = connect_sheet()
+
+    row = find_row_by_date(ws, sheet_date)
+    if not row:
+        raise Exception(f'Дата {sheet_date} не найдена в листе {SHEET_NAME}')
+
+    headers = ws.row_values(1)
+    normalized_headers = {
+        normalize_header(header): idx + 1
+        for idx, header in enumerate(headers)
+    }
+
+    unmapped = []
+    aggregated_by_column = {}
+
+    for (project, tag), minutes in data.items():
+        col_name = COLUMN_MAP.get((project, tag))
+
+        if not col_name:
+            unmapped.append((project, tag, minutes))
+            continue
+
+        normalized_col_name = normalize_header(col_name)
+
+        if normalized_col_name not in normalized_headers:
+            unmapped.append((project, tag, minutes))
+            continue
+
+        aggregated_by_column[normalized_col_name] = (
+                aggregated_by_column.get(normalized_col_name, 0) + minutes
+        )
+
+    updates_count = 0
+
+    for normalized_col_name, total_minutes in aggregated_by_column.items():
+        col_index = normalized_headers[normalized_col_name]
+        ws.update_cell(row, col_index, total_minutes)
+        updates_count += 1
+
+    print(f'Updated {updates_count} cells for {sheet_date}')
+
+    if unmapped:
+        print('Не сопоставлены следующие категории:')
+        for project, tag, minutes in unmapped:
+            print(f'  {project}: {tag} = {minutes}')
+
+
+def print_summary(data):
+    """
+    Выводит агрегированный отчёт в консоль.
+
+    Показывает:
+    - минуты по проектам и тегам
+    - общее время в формате HH:MM:SS
+
+    Особенности:
+    - сначала выводятся ключевые проекты (key_order)
+    - затем остальные (если есть)
+    """
+
+    key_order = [
+        'LIFE OPS',
+        'SPORT AND HEALTH',
+        'OT',
+        'FINANCE AND CAREER',
+        'ENGLISH',
+        'CONTRIBUTION',
+        'ROUTINE'
+    ]
+
     total_seconds = 0
+
     for project in key_order:
-        if project in project_tag_durations:
-            tags = project_tag_durations[project]
-            for tag in sorted(tags.keys()):
-                total_duration = tags[tag]
-                print(f"{project}: {tag} = {round(total_duration / 60)}")
-                total_seconds += total_duration
+        for (p, tag), minutes in data.items():
+            if p == project:
+                print(f"{p}: {tag} = {minutes}")
+                total_seconds += minutes * 60
+
+    other_keys = [
+        ((p, tag), minutes)
+        for (p, tag), minutes in data.items()
+        if p not in key_order
+    ]
+    for (p, tag), minutes in sorted(other_keys):
+        print(f"{p or '[NO PROJECT]'}: {tag or '[NO TAG]'} = {minutes}")
+        total_seconds += minutes * 60
 
     hours = int(total_seconds // 3600)
     minutes = int((total_seconds % 3600) // 60)
     seconds = int(total_seconds % 60)
+
     print(f"{hours:02}:{minutes:02}:{seconds:02}")
 
 
 def main():
-    key_order = ['SPORT AND HEALTH', 'OT', 'FINANCE AND CAREER', 'ENGLISH', 'CONTRIBUTION', 'ROUTINE']
-    parser = argparse.ArgumentParser(description='Get Toggl report for a specific date.')
-    parser.add_argument('start_date', type=str, help='Start date for the report (format: YYYY-MM-DD)')
+    """
+    Точка входа в программу.
+
+    Последовательность:
+    1. Парсинг аргументов CLI
+    2. Нормализация даты
+    3. Получение данных из Toggl
+    4. Агрегация
+    5. Вывод в консоль
+    6. Запись в Google Sheets
+    """
+
+    parser = argparse.ArgumentParser(
+        description='Загружает time entries из Toggl за дату и записывает их в Google Sheets.'
+    )
+
+    parser.add_argument(
+        'date',
+        type=str,
+        help='Дата в формате ДД.ММ.ГГГГ (например 28.02.2026)'
+    )
+
     args = parser.parse_args()
 
-    if args.start_date.lower() == 'today':
-        start_date = datetime.now().strftime('%Y-%m-%d')
-    elif args.start_date.lower() == 'yesterday':
-        start_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-    else:
-        start_date = args.start_date
+    sheet_date = parse_input_date(args.date)
+    toggl_date = sheet_date_to_toggl_date(sheet_date)
 
-    api_token = '06651f8178d17463025b96182908185d'
-    workspace_id = 4682110
-    user_agent = 'olejon@google.com'
+    report = get_report(toggl_date)
+    summary = summarize(report)
 
-    report_data = get_report(api_token, workspace_id, start_date, user_agent)
-    filtered_data = filter_data(report_data)
-    project_tag_durations = summarize_durations(filtered_data)
-    print_durations(project_tag_durations, key_order)
+    print_summary(summary)
+    update_sheet(sheet_date, summary)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
