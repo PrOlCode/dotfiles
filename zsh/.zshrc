@@ -1,3 +1,10 @@
+# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+# Initialization code that may require console input (password prompts, [y/n]
+# confirmations, etc.) must go above this block; everything else may go below.
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
 
@@ -8,7 +15,8 @@ export ZSH="$HOME/.oh-my-zsh"
 # load a random theme each time Oh My Zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-ZSH_THEME="robbyrussell"
+# ZSH_THEME="robbyrussell"
+ZSH_THEME="powerlevel10k/powerlevel10k"
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
@@ -110,14 +118,14 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-function app_d() {
+function appd() {
   xfconf-query -c xsettings -p /Net/ThemeName -s "Matcha-dark-sea"
   alacritty-theme-switcher catppuccin_mocha
   # xfce4-panel -r
   xfce4-appearance-settings &
 }
 
-function app_l() {
+function appl() {
   xfconf-query -c xsettings -p /Net/ThemeName -s "Matcha-sea"
   alacritty-theme-switcher github_light
   # xfce4-panel -r
@@ -138,6 +146,10 @@ alias r='ranger --choosedir=$HOME/.rangerdir; LASTDIR=`cat $HOME/.rangerdir`; cd
 alias rs="python manage.py runserver"
 alias t="tmux"
 alias v="nvim"
+alias wgup='sudo wg-quick up wg0'
+alias wgdn='sudo wg-quick down wg0'
+alias mip='curl ifconfig.me'
+alias mts='WINEPREFIX=$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/ms flatpak run --command=wine com.usebottles.bottles start /unix "$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/ms/drive_c/Program Files/MetaScalp/metascalp.exe"'
 
 function nvims() {
   items=("default" "nvim_AstroNvim" "nvim_KickStart" "nvim_LazyVim" "nvim_NormalNvim" "nvim_NvChad")
@@ -156,3 +168,10 @@ export EDITOR="nvim"
 source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 # Set up fzf key bindings and fuzzy completion
 source <(fzf --zsh)
+
+export PATH=/home/olejon/bin:$PATH
+
+[[ -e "/home/olejon/lib/oracle-cli/lib/python3.14/site-packages/oci_cli/bin/oci_autocomplete.sh" ]] && source "/home/olejon/lib/oracle-cli/lib/python3.14/site-packages/oci_cli/bin/oci_autocomplete.sh"
+
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
