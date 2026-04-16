@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Преобразование .mp4 файлов в .m4a с битрейтом 48k
+# Преобразование .mp4 файлов в .m4a с заданным битрейтом
 
 convert_file() {
     local INPUT_FILE="$1"
@@ -8,8 +8,7 @@ convert_file() {
     local OUTPUT_FILE="${BASENAME}.m4a"
 
     echo "Конвертация: $INPUT_FILE → $OUTPUT_FILE"
-    # ffmpeg -i "$INPUT_FILE" -vn -c:a aac -b:a 48k "$OUTPUT_FILE"
-    ffmpeg -i "$INPUT_FILE" -vn -c:a aac -b:a 64k "$OUTPUT_FILE"
+    ffmpeg -i "$INPUT_FILE" -vn -c:a aac -b:a 48k "$OUTPUT_FILE"
 	# ffmpeg -i "$INPUT_FILE" -vn -c:a copy "$OUTPUT_FILE"
 }
 
