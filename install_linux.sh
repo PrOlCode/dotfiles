@@ -24,6 +24,7 @@ pacman_packages=(
   lf
   # libreoffice-still
   # libreoffice-still-ru
+  maim
   mate-calc
   mpv
   neofetch
@@ -38,7 +39,8 @@ pacman_packages=(
   # pyright
   qbittorrent
   ranger
-  scrot
+  # scrot
+  
   # sqlitebrowser
   stow
   telegram-desktop
@@ -48,7 +50,10 @@ pacman_packages=(
   ttf-jetbrains-mono-nerd
   ueberzugpp	# for ranger
   unzip
+  wireguard-tools
   wmctrl		# Control your EWMH compliant window manager from command line
+  xclip
+  # xdotools
   yt-dlp
   zed
   zip
@@ -68,10 +73,11 @@ aur_packages=(
   dupeguru
   google-chrome
   jdownloader2
-  input-remapper-git
+  input-remapper
   lazydocker
   # microsoft-edge-stable-bin
   # thonny
+  simplescreenrecorder
   xkb-switch
   yandex-browser
   yandex-disk
