@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+"""
+CLI-утилита для извлечения и очистки сообщений из HTML-экспорта Telegram.
+
+Скрипт парсит HTML-файл, полученный из Telegram (экспорт чата),
+извлекает только текстовые сообщения и приводит их к упрощённому формату:
+
+    <дата> <время>
+    <текст сообщения>
+
+Каждое сообщение отделяется пустой строкой.
+
+Функциональность:
+- Игнорирует служебные блоки, кроме тех, что содержат дату
+- Конвертирует даты из формата "5 November 2025" в "05.11.25"
+- Удаляет HTML-разметку и нормализует пробелы
+- Пропускает сообщения без текста, даты или времени
+
+Вход:
+    HTML-файл Telegram-экспорта (обычно messages.html или аналогичный)
+
+Выход:
+    Текстовый файл с суффиксом "-clean" в имени
+    (например: messages.html → messages-clean.html)
+
+Пример использования:
+    python script.py messages.html
+
+Зависимости:
+    - Python 3.9+
+    - beautifulsoup4
+
+Ограничения:
+    - Ожидается стандартная структура HTML Telegram-экспорта
+    - Не обрабатываются вложения (фото, файлы, стикеры и т.д.)
+    - Поддерживается только английский формат даты (например, "November")
+
+Возвращаемое значение:
+    Скрипт выводит в stdout количество обработанных сообщений и путь к результату.
+"""
+from __future__ import annotations
+
+import argparse
+import re
+from pathlib import Path
+from datetime import datetime
+from bs4 import BeautifulSoup
+
+
+def clean_html_text(tag) -> str:
+    """Извлекает чистый текст из HTML-тега."""
+    if not tag:
+        return ""
+    text = tag.get_text(separator=" ", strip=True)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def format_date(raw_date: str) -> str:
+    """
+    Преобразует дату вида:
+    '5 November 2025' -> '05.11.25'
+    """
+    dt = datetime.strptime(raw_date, "%d %B %Y")
+    return dt.strftime("%d.%m.%y")
+
+
+def build_output_path(input_path: Path) -> Path:
+    """
+    message1.txt -> message1-clean.txt
+    """
+    return input_path.with_name(f"{input_path.stem}-clean{input_path.suffix}")
+
+
+def parse_telegram_export(input_file: Path, output_file: Path) -> int:
+    with input_file.open("r", encoding="utf-8") as f:
+        soup = BeautifulSoup(f, "html.parser")
+
+    current_date = None
+    written_count = 0
+
+    all_blocks = soup.find_all("div", class_="message")
+
+    with output_file.open("w", encoding="utf-8") as out:
+        for block in all_blocks:
+            classes = block.get("class", [])
+
+            # Блок с датой
+            if "service" in classes:
+                date_div = block.find("div", class_="details")
+                if date_div:
+                    raw_date = clean_html_text(date_div)
+                    try:
+                        current_date = format_date(raw_date)
+                    except ValueError:
+                        current_date = None
+                continue
+
+            # Обычное сообщение
+            if "default" not in classes:
+                continue
+
+            body = block.find("div", class_="body")
+            if not body:
+                continue
+
+            time_div = body.find("div", class_="date")
+            text_div = body.find("div", class_="text")
+
+            time_str = clean_html_text(time_div)
+            message_text = clean_html_text(text_div)
+
+            # Пропускаем сообщения без текста
+            if not current_date or not time_str or not message_text:
+                continue
+
+            out.write(f"{current_date} {time_str}\n")
+            out.write(f"{message_text}\n\n")
+            written_count += 1
+
+    return written_count
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Очистка Telegram HTML-экспорта: оставить только дату, время и текст сообщения."
+    )
+    parser.add_argument(
+        "input_file",
+        help="Путь к входному файлу, например: messages2.txt"
+    )
+    args = parser.parse_args()
+
+    input_path = Path(args.input_file)
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"Файл не найден: {input_path}")
+
+    output_path = build_output_path(input_path)
+    count = parse_telegram_export(input_path, output_path)
+
+    print(f"Готово. Сохранено {count} сообщений в файл: {output_path}")
+
+
+if __name__ == "__main__":
+    main()
