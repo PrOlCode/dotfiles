@@ -1,30 +1,39 @@
 return {
   {
     "nvim-treesitter/nvim-treesitter",
+    lazy = false,
     build = ":TSUpdate",
-    config = function()
-      local config = require("nvim-treesitter.configs")
-      config.setup({
-        ensure_installed = {
-          "csv",
-          "dockerfile",
-          "gitignore",
-          "go",
-          "gomod",
-          "gosum",
-          "gowork",
-          -- "javascript",
-          "json",
-          "lua",
-          "markdown",
-          "python",
-          -- "sql",
-          "yaml",
-        },
-        auto_install = true,
-        highlight = { enable = true },
-        indent = { enable = true },
-      })
-    end,
+    opts = {
+      ensure_installed = {
+        "csv",
+        "dockerfile",
+        "gitignore",
+        "go",
+        "gomod",
+        "gosum",
+        "gowork",
+        "json",
+        "lua",
+        "markdown",
+        "markdown_inline",
+        "python",
+        "yaml",
+        "vim",
+        "vimdoc",
+        "query",
+      },
+
+      auto_install = false,
+
+      highlight = {
+        enable = true,
+        additional_vim_regex_highlighting = false,
+      },
+
+      indent = {
+        enable = true,
+        disable = { "python", "yaml" },
+      },
+    },
   },
 }
