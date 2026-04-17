@@ -1,17 +1,15 @@
 return {
 	{
-		"williamboman/mason.nvim",
+		"mason-org/mason.nvim",
 		lazy = false,
-		config = function()
-			require("mason").setup()
-		end,
+	    opts = {}
 	},
 	{
-		"williamboman/mason-lspconfig.nvim",
+		"mason-org/mason-lspconfig.nvim",
 		lazy = false,
 		opts = {
-			ensure_installed = { "lua_ls", "gopls", "pyright", "harper_ls" },
-			automatic_installation = true,
+			ensure_installed = { "lua_ls", "pyright", "harper_ls" },
+			automatic_enable = false,
 		},
 	},
 	{
@@ -19,19 +17,21 @@ return {
 		lazy = false,
 		config = function()
 			local capabilities = require("cmp_nvim_lsp").default_capabilities()
-			local lspconfig = require("lspconfig")
+			vim.lsp.config("lua_ls", {
+				capabilities = capabilities,
+			})
 
-			lspconfig.lua_ls.setup({
+			vim.lsp.config("pyright", {
 				capabilities = capabilities,
 			})
-			lspconfig.gopls.setup({
+
+			vim.lsp.config("harper_ls", {
 				capabilities = capabilities,
 			})
-			lspconfig.pyright.setup({
-				capabilities = capabilities,
-			})
-			-- lspconfig.harper_ls.setup({
-			--    })
+
+			vim.lsp.enable("lua_ls")
+			vim.lsp.enable("pyright")
+			vim.lsp.enable("harper_ls")
 
 			vim.keymap.set("n", "K", vim.lsp.buf.hover, {})
 			vim.keymap.set("n", "<leader>gd", vim.lsp.buf.definition, {})
@@ -40,6 +40,3 @@ return {
 		end,
 	},
 }
--- TODO :h lsp.lsp.buf - help for lsp buf section
--- TODO compare plugin telescope UI
--- TODO Ctrl+X + Ctrl+O => 15:50
