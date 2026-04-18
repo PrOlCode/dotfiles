@@ -31,6 +31,7 @@ pacman_packages=(
   neovim
   npm
   obsidian
+  okular
   # openoffice-bin 
   # pycharm-community-edition
   python
