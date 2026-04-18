@@ -70,7 +70,8 @@ python toggl.py 16.04.2026
 
 import os
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import gspread
 import requests
@@ -86,6 +87,7 @@ SPREADSHEET_ID = os.getenv('SPREADSHEET_ID', '1EjyuryS44AXzi6UQwS0qkY4X1YoOjfke3
 SHEET_NAME = os.getenv('SHEET_NAME', 'Daily_Log_Raw')
 SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE', 'service_account.json')
 REQUEST_TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', '30'))
+TOGGL_TIMEZONE = os.getenv('TOGGL_TIMEZONE', 'Asia/Almaty')
 # ==========================================
 
 
@@ -153,10 +155,6 @@ def parse_input_date(date_str: str) -> str:
         ) from exc
 
 
-def sheet_date_to_toggl_date(sheet_date: str) -> str:
-    return datetime.strptime(sheet_date, '%d.%m.%Y').strftime('%Y-%m-%d')
-
-
 def make_auth() -> HTTPBasicAuth:
     return HTTPBasicAuth(TOGGL_API_TOKEN, 'api_token')
 
@@ -190,27 +188,27 @@ def safe_get(url: str, *, params=None):
 
     if response.status_code == 402:
         raise Exception(
-            'Toggl вернул 402 Payment Required. ' \
-            'Это означает, что текущий endpoint недоступен для вашего workspace. ' \
+            'Toggl вернул 402 Payment Required. '
+            'Это означает, что текущий endpoint недоступен для вашего workspace. '
             f'URL: {response.url}\n'
             f'Body: {response.text}'
         )
 
     if response.status_code == 401:
         raise Exception(
-            'Toggl вернул 401 Unauthorized. Проверь TOGGL_API_TOKEN. ' \
+            'Toggl вернул 401 Unauthorized. Проверь TOGGL_API_TOKEN. '
             f'URL: {response.url}\nBody: {response.text}'
         )
 
     if response.status_code == 403:
         raise Exception(
-            'Toggl вернул 403 Forbidden. У пользователя нет доступа к ресурсу. ' \
+            'Toggl вернул 403 Forbidden. У пользователя нет доступа к ресурсу. '
             f'URL: {response.url}\nBody: {response.text}'
         )
 
     if response.status_code == 429:
         raise Exception(
-            'Toggl вернул 429 Too Many Requests. Слишком много запросов за короткое время. ' \
+            'Toggl вернул 429 Too Many Requests. Слишком много запросов за короткое время. '
             f'URL: {response.url}\nBody: {response.text}'
         )
 
@@ -226,17 +224,97 @@ def safe_get(url: str, *, params=None):
     return response
 
 
-def get_time_entries(toggl_date: str):
+def parse_toggl_datetime(value: str) -> datetime:
     """
-    Получает список time entries за конкретный день
+    Парсит datetime из Toggl в aware-datetime.
+
+    Поддерживает форматы:
+    - 2026-04-16T23:59:00Z
+    - 2026-04-16T23:59:00+00:00
+    """
+
+    if not value:
+        raise ValueError('Пустое значение datetime от Toggl')
+
+    if value.endswith('Z'):
+        value = value[:-1] + '+00:00'
+
+    return datetime.fromisoformat(value)
+
+
+def get_local_day_bounds(sheet_date: str, tz_name: str = TOGGL_TIMEZONE):
+    """
+    Возвращает границы локальных суток и их UTC-представление.
+
+    Возвращает:
+        tuple(
+            local_start,
+            local_end,
+            utc_start,
+            utc_end
+        )
+    """
+
+    tz = ZoneInfo(tz_name)
+
+    local_start = datetime.strptime(sheet_date, '%d.%m.%Y').replace(
+        hour=0, minute=0, second=0, microsecond=0, tzinfo=tz
+    )
+    local_end = local_start + timedelta(days=1)
+
+    utc_start = local_start.astimezone(timezone.utc)
+    utc_end = local_end.astimezone(timezone.utc)
+
+    return local_start, local_end, utc_start, utc_end
+
+
+def clip_entry_to_local_day(entry: dict, sheet_date: str, tz_name: str = TOGGL_TIMEZONE) -> int:
+    """
+    Возвращает длительность записи, которая реально попадает
+    в локальные сутки sheet_date.
+
+    Логика:
+    - берём интервал записи [start, stop)
+    - берём интервал локальных суток, переведённый в UTC
+    - считаем пересечение этих двух интервалов
+
+    Возвращает:
+        int — длительность в миллисекундах
+    """
+
+    _, _, utc_day_start, utc_day_end = get_local_day_bounds(sheet_date, tz_name)
+
+    start_raw = entry.get('start')
+    stop_raw = entry.get('stop')
+
+    if not start_raw or not stop_raw:
+        return 0
+
+    start_dt = parse_toggl_datetime(start_raw).astimezone(timezone.utc)
+    stop_dt = parse_toggl_datetime(stop_raw).astimezone(timezone.utc)
+
+    if stop_dt <= start_dt:
+        return 0
+
+    overlap_start = max(start_dt, utc_day_start)
+    overlap_end = min(stop_dt, utc_day_end)
+
+    if overlap_end <= overlap_start:
+        return 0
+
+    overlap_seconds = (overlap_end - overlap_start).total_seconds()
+    return int(overlap_seconds * 1000)
+
+
+def get_time_entries(sheet_date: str):
+    """
+    Получает список time entries за конкретный локальный день
     через Toggl Track API v9.
 
-    Параметры:
-        toggl_date (str): дата в формате YYYY-MM-DD
-
     Важно:
-    - используется полный диапазон суток (00:00–23:59 UTC)
-    - параметр meta=true добавляет project_name и tags
+    - диапазон суток считается в локальном timezone
+    - в API отправляется уже переведённый диапазон в UTC
+    - meta=true добавляет project_name и tags
 
     Возвращает:
         list[dict] — список записей Toggl
@@ -245,10 +323,12 @@ def get_time_entries(toggl_date: str):
         Exception — если формат ответа неожиданный
     """
 
+    _, _, utc_start, utc_end = get_local_day_bounds(sheet_date)
+
     url = 'https://api.track.toggl.com/api/v9/me/time_entries'
     params = {
-        'start_date': f'{toggl_date}T00:00:00Z',
-        'end_date': f'{toggl_date}T23:59:59Z',
+        'start_date': utc_start.isoformat().replace('+00:00', 'Z'),
+        'end_date': utc_end.isoformat().replace('+00:00', 'Z'),
         'meta': 'true',
     }
 
@@ -264,16 +344,17 @@ def get_time_entries(toggl_date: str):
     return payload
 
 
-def normalize_report(items):
+def normalize_report(items, sheet_date: str):
     """
     Приводит ответ Track API v9 к внутреннему формату.
 
     Зачем:
     - унифицировать данные под summarize()
     - абстрагироваться от структуры API
+    - корректно учитывать записи, пересекающие границу суток
 
     Преобразования:
-    - duration (сек) → dur (миллисекунды)
+    - длительность считается по пересечению записи с локальными сутками
     - project_name → project
     - tags остаются как есть
 
@@ -292,9 +373,10 @@ def normalize_report(items):
     normalized = []
 
     for entry in items:
-        duration = entry.get('duration', 0)
-        if duration is None or duration < 0:
-            duration = 0
+        dur_ms = clip_entry_to_local_day(entry, sheet_date)
+
+        if dur_ms <= 0:
+            continue
 
         project_name = entry.get('project_name') or ''
         tags = entry.get('tags') or ['']
@@ -302,15 +384,15 @@ def normalize_report(items):
         normalized.append({
             'project': project_name,
             'tags': tags,
-            'dur': int(duration) * 1000,
+            'dur': dur_ms,
         })
 
     return {'data': normalized}
 
 
-def get_report(toggl_date: str):
-    items = get_time_entries(toggl_date)
-    return normalize_report(items)
+def get_report(sheet_date: str):
+    items = get_time_entries(sheet_date)
+    return normalize_report(items, sheet_date)
 
 
 def summarize(report_data):
@@ -519,9 +601,8 @@ def main():
     args = parser.parse_args()
 
     sheet_date = parse_input_date(args.date)
-    toggl_date = sheet_date_to_toggl_date(sheet_date)
 
-    report = get_report(toggl_date)
+    report = get_report(sheet_date)
     summary = summarize(report)
 
     print_summary(summary)
