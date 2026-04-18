@@ -150,6 +150,8 @@ alias wgup='sudo wg-quick up wg0'
 alias wgdn='sudo wg-quick down wg0'
 alias mip='curl ifconfig.me'
 alias mts='WINEPREFIX=$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/ms flatpak run --command=wine com.usebottles.bottles start /unix "$HOME/.var/app/com.usebottles.bottles/data/bottles/bottles/ms/drive_c/Program Files/MetaScalp/metascalp.exe"'
+alias nvim12='NVIM_APPNAME=nvim12 ~/apps/nvim-0.12/nvim12'
+alias nvim13='NVIM_APPNAME=nvim13 ~/apps/nvim-0.13/nvim13'
 
 function nvims() {
   items=("default" "nvim_AstroNvim" "nvim_KickStart" "nvim_LazyVim" "nvim_NormalNvim" "nvim_NvChad")
