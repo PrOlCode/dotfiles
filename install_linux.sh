@@ -9,7 +9,6 @@ pacman_packages=(
   base-devel
   bitwarden
   brave-browser
-  code
   docker
   docker-compose
   fd
@@ -20,6 +19,7 @@ pacman_packages=(
   gnome-disk-utility
   gthumb
   htop
+  keyd
   lazygit
   lf
   # libreoffice-still
@@ -79,6 +79,7 @@ aur_packages=(
   # microsoft-edge-stable-bin
   # thonny
   simplescreenrecorder
+  visual-studio-code-bin
   xkb-switch
   yandex-browser
   yandex-disk
