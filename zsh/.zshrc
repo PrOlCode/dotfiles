@@ -133,7 +133,8 @@ function appl() {
 }
 
 # Aliases
-alias act="source ./venv/bin/activate"
+alias act="source .venv/bin/activate"
+alias py="uv run python"
 alias c="clear"
 alias fz='fzf --preview="bat --color=always {}"'
 alias gr='function _gorunfmt() { gofmt -w "$1" && go run "$1"; }; _gorunfmt'
@@ -177,3 +178,12 @@ export PATH=/home/olejon/bin:$PATH
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+typeset -U path
+path=(
+  # cursor
+  $HOME/.local/bin
+  # npm global bin (codex cli)
+  $HOME/.local/share/npm-global/bin
+  $path
+)
